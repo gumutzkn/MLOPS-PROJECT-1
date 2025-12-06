@@ -12,13 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . .
 
-COPY key.json /app/key.json
-
-ENV GOOGLE_APPLICATION_CREDENTIALS="/app/key.json"
-
 RUN pip install --no-cache-dir -e .
-
-RUN python pipeline/training_pipeline.py
 
 EXPOSE 5000
 

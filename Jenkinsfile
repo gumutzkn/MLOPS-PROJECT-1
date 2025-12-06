@@ -37,7 +37,6 @@ pipeline{
           script{
             echo 'Building and Pushing Docker Image to GCR.................'
             sh '''
-            cp $GOOGLE_APPLICATION_CREDENTIALS ./key.json
 
             export PATH=$PATH:${GCLOUD_PATH}
             gcloud auth activate-service-account --key-file=./key.json
@@ -47,8 +46,6 @@ pipeline{
             docker build -t gcr.io/${GCP_PROJECT}/ml-project:latest .
 
             docker push gcr.io/${GCP_PROJECT}/ml-project:latest
-            
-            rm ./key.json
             '''
           }
         }
