@@ -12,7 +12,10 @@ logger = get_logger(__name__)
 class DataIngestion:
     def __init__(self, config):
         self.config = config["data_ingestion"]
-        self.bucket_name = self.config["bucket_name"]
+        self.bucket_name = os.getenv("GCS_BUCKET_NAME", self.config["bucket_name"])
+        
+        if not self.bucket_name or "PLACEHOLDER" in self.bucket_name:
+             raise ValueError("HATA: Bucket ismi bulunamadı! 'GCS_BUCKET_NAME' environment variable tanımlı değil.")
         self.file_name = self.config["bucket_file_name"]
         self.train_ratio = self.config["train_ratio"]
 
