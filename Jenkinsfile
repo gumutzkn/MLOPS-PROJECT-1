@@ -37,15 +37,18 @@ pipeline {
                     script {
                         echo 'Eğitim Containerı Başlatılıyor...'
                         
-                        // JSON dosyasını doğrudan volume mount ile container'a bağlıyoruz
-                        // Bu yöntem shell escaping sorunlarını tamamen ortadan kaldırır
+                        // Base64 ile encode edip container içinde decode ediyoruz
+                        // Bu yöntem Docker-in-Docker senaryolarında da çalışır
                         sh """
+                        GCP_KEY_BASE64=\$(cat \$GOOGLE_APPLICATION_CREDENTIALS | base64 -w 0)
+                        
                         docker run --rm \
-                        -v \$GOOGLE_APPLICATION_CREDENTIALS:/app/key.json:ro \
+                        -e GCP_KEY_BASE64="\$GCP_KEY_BASE64" \
                         -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
                         -e GCS_BUCKET_NAME=\$GCS_BUCKET_NAME \
+                        --entrypoint /bin/sh \
                         \$IMAGE_TAG \
-                        python pipeline/training_pipeline.py
+                        -c 'echo \$GCP_KEY_BASE64 | base64 -d > /app/key.json && python pipeline/training_pipeline.py'
                         """
                     }
                 }
