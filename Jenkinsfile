@@ -37,22 +37,15 @@ pipeline {
                     script {
                         echo 'Eğitim Containerı Başlatılıyor...'
                         
-                        // 1. Dosyanın İÇERİĞİNİ Groovy değişkenine okuyoruz
-                        def keyContent = readFile(file: GOOGLE_APPLICATION_CREDENTIALS).trim()
-                        
-                        // 2. Docker'ı çalıştırıyoruz ama farklı bir teknikle:
-                        // --entrypoint /bin/sh: Python'u hemen başlatma, önce bana terminal ver diyoruz.
-                        // -c "...": İçeride önce key dosyasını yarat, SONRA eğitimi başlat diyoruz.
-                        // GCP_KEY_CONTENT env variable'ı ile şifreyi içeri taşıyoruz.
-                        
+                        // JSON dosyasını doğrudan volume mount ile container'a bağlıyoruz
+                        // Bu yöntem shell escaping sorunlarını tamamen ortadan kaldırır
                         sh """
                         docker run --rm \
-                        -e GCP_KEY_CONTENT='${keyContent}' \
+                        -v \$GOOGLE_APPLICATION_CREDENTIALS:/app/key.json:ro \
                         -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
                         -e GCS_BUCKET_NAME=\$GCS_BUCKET_NAME \
-                        --entrypoint /bin/sh \
                         \$IMAGE_TAG \
-                        -c "echo \\"\$GCP_KEY_CONTENT\\" > /app/key.json && python pipeline/training_pipeline.py"
+                        python pipeline/training_pipeline.py
                         """
                     }
                 }
