@@ -31,28 +31,33 @@ pipeline {
             }
         }
 
-        stage('Train Model (in Container)') {
+       stage('Train Model (in Container)') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
                     script {
                         echo 'Eğitim Containerı Başlatılıyor...'
                         
-                        // Dosya izinleri için cat yöntemi (Önceki çözümümüz)
-                        sh 'cat $GOOGLE_APPLICATION_CREDENTIALS > ./key.json'
-                        sh 'chmod 644 ./key.json'
+                        // DEĞİŞİKLİK 1: Dosyayı proje klasörüne değil, /tmp klasörüne yazıyoruz.
+                        // /tmp klasörü her zaman yazılabilir olduğu için "Permission Denied" hatası almazsın.
+                        sh 'cat $GOOGLE_APPLICATION_CREDENTIALS > /tmp/gcp-key.json'
+                        
+                        // Docker okuyabilsin diye izin veriyoruz
+                        sh 'chmod 644 /tmp/gcp-key.json'
 
                         try {
-                            // DÜZELTME: Değişkenlerin başına \ koyarak Shell Variable yaptık
+                            // DEĞİŞİKLİK 2: Docker'a volume olarak /tmp/gcp-key.json yolunu veriyoruz.
                             sh """
                             docker run --rm \
-                            -v "\$(pwd)/key.json:/app/key.json" \
+                            -v "/tmp/gcp-key.json:/app/key.json" \
                             -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
                             -e GCS_BUCKET_NAME=\$GCS_BUCKET_NAME \
                             \$IMAGE_TAG \
                             python pipeline/training_pipeline.py
                             """
                         } finally {
-                            sh 'rm -f ./key.json'
+                            // İş bitince /tmp içindeki dosyayı siliyoruz
+                            sh 'rm -f /tmp/gcp-key.json'
+                            echo 'Geçici key dosyası temizlendi.'
                         }
                     }
                 }
