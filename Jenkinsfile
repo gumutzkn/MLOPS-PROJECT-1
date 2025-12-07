@@ -35,18 +35,26 @@ pipeline {
                     script {
                         echo 'Eğitim Containerı Başlatılıyor...'
                         
-                        // --rm: İş bitince container silinir.
-                        // -v: Key dosyasını container içine yansıtır (Mount).
-                        // -e: Key dosyasının yerini Python'a söyler.
-                        // python pipeline/training_pipeline.py: Senin eğitim kodunu çalıştırır.
-                        sh """
-                        docker run --rm \
-                        -v ${GOOGLE_APPLICATION_CREDENTIALS}:/app/key.json \
-                        -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
-                        -e GCS_BUCKET_NAME=${GCS_BUCKET_NAME} \
-                        ${IMAGE_TAG} \
-                        python pipeline/training_pipeline.py
-                        """
+                        // ADIM 1: Gizli dosyayı geçici klasörden şimdiki çalışma dizinine (workspace) kopyala.
+                        // Docker Daemon workspace'i görebilir.
+                        sh 'cp $GOOGLE_APPLICATION_CREDENTIALS ./key.json'
+                        
+                        try {
+                            // ADIM 2: Docker'a $(pwd)/key.json yolunu veriyoruz.
+                            // Groovy Interpolation hatasını çözmek için değişkenleri shell formatında ($Variable) bıraktık.
+                            sh """
+                            docker run --rm \
+                            -v "\$(pwd)/key.json:/app/key.json" \
+                            -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
+                            -e GCS_BUCKET_NAME=${GCS_BUCKET_NAME} \
+                            ${IMAGE_TAG} \
+                            python pipeline/training_pipeline.py
+                            """
+                        } finally {
+                            // ADIM 3: İşlem başarılı olsa da olmasa da güvenlik için dosyayı sil.
+                            sh 'rm -f ./key.json'
+                            echo 'Geçici key dosyası temizlendi.'
+                        }
                     }
                 }
             }
