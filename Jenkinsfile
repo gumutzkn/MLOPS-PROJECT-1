@@ -37,28 +37,23 @@ pipeline {
                     script {
                         echo 'Eğitim Containerı Başlatılıyor...'
                         
-                        // DEĞİŞİKLİK 1: Dosyayı proje klasörüne değil, /tmp klasörüne yazıyoruz.
-                        // /tmp klasörü her zaman yazılabilir olduğu için "Permission Denied" hatası almazsın.
-                        sh 'cat $GOOGLE_APPLICATION_CREDENTIALS > /tmp/gcp-key.json'
+                        // 1. Dosyanın İÇERİĞİNİ Groovy değişkenine okuyoruz
+                        def keyContent = readFile(file: GOOGLE_APPLICATION_CREDENTIALS).trim()
                         
-                        // Docker okuyabilsin diye izin veriyoruz
-                        sh 'chmod 644 /tmp/gcp-key.json'
-
-                        try {
-                            // DEĞİŞİKLİK 2: Docker'a volume olarak /tmp/gcp-key.json yolunu veriyoruz.
-                            sh """
-                            docker run --rm \
-                            -v "/tmp/gcp-key.json:/app/key.json" \
-                            -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
-                            -e GCS_BUCKET_NAME=\$GCS_BUCKET_NAME \
-                            \$IMAGE_TAG \
-                            python pipeline/training_pipeline.py
-                            """
-                        } finally {
-                            // İş bitince /tmp içindeki dosyayı siliyoruz
-                            sh 'rm -f /tmp/gcp-key.json'
-                            echo 'Geçici key dosyası temizlendi.'
-                        }
+                        // 2. Docker'ı çalıştırıyoruz ama farklı bir teknikle:
+                        // --entrypoint /bin/sh: Python'u hemen başlatma, önce bana terminal ver diyoruz.
+                        // -c "...": İçeride önce key dosyasını yarat, SONRA eğitimi başlat diyoruz.
+                        // GCP_KEY_CONTENT env variable'ı ile şifreyi içeri taşıyoruz.
+                        
+                        sh """
+                        docker run --rm \
+                        -e GCP_KEY_CONTENT='${keyContent}' \
+                        -e GOOGLE_APPLICATION_CREDENTIALS=/app/key.json \
+                        -e GCS_BUCKET_NAME=\$GCS_BUCKET_NAME \
+                        --entrypoint /bin/sh \
+                        \$IMAGE_TAG \
+                        -c "echo \\"\$GCP_KEY_CONTENT\\" > /app/key.json && python pipeline/training_pipeline.py"
+                        """
                     }
                 }
             }
